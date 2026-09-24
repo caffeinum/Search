@@ -303,6 +303,12 @@ final class Bench {
             // of yours, so there every tab is listed.
             answer(["tabs": browser.tabs.filter { Store.testing || !$0.shy }.map(describe)])
 
+        case "status":
+            let screens = NSScreen.screens.map(\.frame)
+            let showing = NSApp.windows.filter { window in window.isVisible && screens.contains { $0.intersects(window.frame) } }
+            answer(["pid": Int(getpid()), "world": Store.world ?? "", "headless": Links.headless,
+                    "hidden": NSApp.isHidden, "windows": showing.count, "tabs": browser.tabs.count])
+
         case "open":
             guard let url = (request["url"] as? String).flatMap(Address.url(from:)) else {
                 answer(["error": "open needs a url"])
