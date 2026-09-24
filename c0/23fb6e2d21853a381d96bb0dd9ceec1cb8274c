@@ -1,7 +1,9 @@
 Sources/Search/Bench.swift
   s_f0e1d71581bb0c::t_c3a039e0f5a871 782,1180,1194-1197,1259,1263-1283
+  s_f0e1d71581bb0c::t_11f2cf382b8ae7 782,1180,1194-1197,1259,1263-1283
 bench
   s_f0e1d71581bb0c::t_549fff943f4f4d 240-241
+  s_f0e1d71581bb0c::t_c6c8a400ebc3f3 240-241
 ---
 {
   "schema_version": "authorship/3.0.0",
