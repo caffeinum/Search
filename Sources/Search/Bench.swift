@@ -1638,14 +1638,7 @@ final class Bench {
                     live.frame = homeFrame
                     home?.addSubview(live)
                 }
-                // A window off every screen counts as covered, and WebKit
-                // paints nothing it thinks nobody sees; this one is told to
-                // paint regardless.
-                let occlusion = NSSelectorFromString("_setWindowOcclusionDetectionEnabled:")
-                if page.responds(to: occlusion) {
-                    typealias Setter = @convention(c) (AnyObject, Selector, Bool) -> Void
-                    unsafeBitCast(page.method(for: occlusion), to: Setter.self)(page, occlusion, false)
-                }
+                Bench.paintUnseen(page)
                 stand.contentView?.addSubview(page)
                 if fresh { page.load(URLRequest(url: address)) }
                 let settle = request["settle"] as? Double ?? 3
@@ -1900,11 +1893,7 @@ final class Bench {
             // A window off every screen counts as covered, and WebKit draws
             // nothing it thinks nobody sees.
             let web = tab.web
-            let occlusion = NSSelectorFromString("_setWindowOcclusionDetectionEnabled:")
-            if web.responds(to: occlusion) {
-                typealias Setter = @convention(c) (AnyObject, Selector, Bool) -> Void
-                unsafeBitCast(web.method(for: occlusion), to: Setter.self)(web, occlusion, false)
-            }
+            Bench.paintUnseen(web)
             let record = """
             (function () {
               var log = window.__benchFilm = [], t0 = performance.now();
@@ -2863,7 +2852,7 @@ final class Bench {
     }
 
     private func describe(_ tab: Tab) -> [String: Any] {
-        [
+        var described: [String: Any] = [
             "id": Bench.short(tab),
             "url": tab.address?.absoluteString ?? "",
             "page": tab.pageAddress?.absoluteString ?? "",
@@ -2884,6 +2873,10 @@ final class Bench {
             // The page's WebKit process, for measuring what it holds.
             "process": tab.built.flatMap { $0.value(forKey: "_webProcessIdentifier") as? Int } ?? 0,
         ]
+        if tab.bench, Bench.unseenBroken {
+            described["unseen"] = "this WebKit won't paint a page off screen as seen: it runs as a hidden tab, throttled"
+        }
+        return described
     }
 
     static func short(_ tab: Tab) -> String {
@@ -3003,11 +2996,33 @@ final class Bench {
         let window = room ?? makeRoom()
         tab.web.frame = window.contentView?.bounds ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
         tab.web.autoresizingMask = [.width, .height]
+        Bench.paintUnseen(tab.web)
         window.contentView?.addSubview(tab.web)
     }
 
     /// The last page `ai read` read, for `ai check`.
     static var aiRead: AIPage.Read?
+
+    /// A window off every screen counts as covered, and WebKit treats a page
+    /// nobody sees as a background tab: `visibilityState` hidden, no
+    /// animation frames, timers slowed to a crawl, and a single-page app
+    /// that waits to be shown paints nothing at all. This one is told it is
+    /// seen. The switch is private to WebKit; if a macOS update takes it
+    /// away, `unseen` says so on every tab the bench describes, rather than
+    /// the pages quietly going back to sleep.
+    static func paintUnseen(_ web: WKWebView) {
+        let occlusion = NSSelectorFromString("_setWindowOcclusionDetectionEnabled:")
+        guard web.responds(to: occlusion) else {
+            unseenBroken = true
+            NSLog("Bench: WebKit no longer answers _setWindowOcclusionDetectionEnabled:, so pages off screen run as hidden tabs")
+            return
+        }
+        typealias Setter = @convention(c) (AnyObject, Selector, Bool) -> Void
+        unsafeBitCast(web.method(for: occlusion), to: Setter.self)(web, occlusion, false)
+    }
+
+    /// True once WebKit has refused to paint a page off screen as seen.
+    private(set) static var unseenBroken = false
 
     private func makeRoom() -> NSWindow {
         // Off every screen, and never key or main: it exists so that a web

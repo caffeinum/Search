@@ -525,6 +525,8 @@ def main(argv):
         sys.exit(3)
     if "error" in answer:
         sys.exit("error: " + str(answer["error"]))
+    if "unseen" in answer:
+        print("warning: " + answer["unseen"], file=sys.stderr)
     if verb == "text":
         print(answer.get("text", ""))
         if answer.get("truncated"):
