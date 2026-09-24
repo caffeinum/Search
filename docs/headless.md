@@ -137,3 +137,56 @@ Keep `./bench` as the client. Change the app only:
 The proof to show is `SEARCH_PROBE=agent`: log in to GitHub once, then with zero windows on screen run open `github.com/notifications` → `snapshot` → `click` a notification. The page reports `visible`, and the person was never interrupted.
 
 Slice 2 is the installed `search` binary, `search mcp` and the skill install. Slice 3 is GUI↔headless in one process for the person's own world.
+
+## 7. Fully in the background: ⌘Q, and agents keep going
+
+Aleks's shape for this: a **bench daemon** that runs Search headless, never opens a window, and is killed once the agent is done. Most of it is built. Slice 1's headless mode *is* the daemon. The rest is what ⌘Q means, how long the daemon lives, and whose identity it has.
+
+### What was measured
+
+`personal`, on the installed app: after ⌘Q the socket is gone. `open -gj -a Search` has the bench listening after about 1 s, with zero on-screen windows. But its bench tabs report `hidden`. Railway stayed signed in across the quit. **e2b did not**: its session is a session-only cookie.
+
+Here, in a harness (off-screen room, occlusion off), one process going through the states a background Search would:
+
+| State | `visibilityState` | rAF / 1 s |
+|---|---|---|
+| `.regular`, window up | visible | 58 |
+| `.regular`, app hidden (what `open -gj` gives today) | hidden | 0 |
+| window closed, `.accessory`, `unhideWithoutActivation()` | **visible** | 60 |
+| `.accessory`, hidden again | hidden | 0 |
+
+So the rule is: **never hidden, not whether windowless**. A hidden launch has to un-hide itself, after it has switched to `.accessory`, so nothing can show.
+
+Session cookies, in a harness using a `WKWebsiteDataStore(forIdentifier:)`: a page set a session cookie `sid` and a persistent one `keep`.
+- A new process: only `keep`. This is e2b's logout, reproduced.
+- A new process that first wrote back the session cookies, saved from `httpCookieStore.getAllCookies` where `isSessionOnly`: both, and the page reads `sid` again.
+
+The native store includes HttpOnly cookies, so this covers real session cookies.
+
+Single instance: nothing stops two processes on one world. `Bench.start` `unlink`s and rebinds the socket, so a second process steals it, and both then write the same session and history files. `open -n` forces a second one. A plain `open` of the same bundle reuses the running one.
+
+### Recommendation
+
+**One process per world, kept warm with an idle timeout, not killed when the job is done.**
+
+- *Kill-when-done* costs a cold start (~1 s, plus page loads and whatever the sites cache in memory) and every session-only login, on every job. *Idle timeout* (default 30 min after the last bench command) costs one idle WebKit process while agents are working. That is cheap. Take the timeout.
+- **Save session cookies on the way down, restore them on launch**, in agent worlds. It's what "continue where you left off" does in Chrome. The file goes in the keychain (they are credentials) and holds only the session-only cookies of that world. This makes an e2b-style login survive the timeout and reboots. Off for the person's own world unless they turn it on: it keeps sites' "end of session" from ever happening, and that should be their call.
+- **Launch on demand from the CLI, no login item and no LaunchAgent.** Nothing needs Search at boot. The first `search …` call starts it in about 1 s, and the idle timeout keeps it warm for the rest of the task. `open -n -g --env SEARCH_HEADLESS=1 --env SEARCH_PROBE=<world>` for an agent world. Never `-j`, or it starts hidden.
+- **A world lock.** The first process on a world takes a `flock` on a file in its folder. A second one on the same world exits with "Search is already running on world X (pid N)" instead of stealing the socket. The CLI treats that as "talk to that one".
+
+**⌘Q.** A setting, *Keep agents running after quit*, off by default.
+- Off: ⌘Q quits, as today.
+- On, and bench tabs are open (or the bench was used in the last N minutes): ⌘Q saves the person's session as a quit does, closes every window, switches to `.accessory` and un-hides.
+- The room stays, the bench keeps answering, and the person's own tabs are parked and asleep (they already sleep after 30 min).
+- An `NSStatusItem` shows it's there. `.accessory` apps can still have one. It is a flask in the menu bar, with *Show Search* and *Quit completely*. An invisible browser still running after ⌘Q, with nothing on screen to say so, is a trust problem even when it's our own agents.
+- With no agents around, ⌘Q quits.
+
+**Getting the window back.** Clicking Search in the Dock or Launchpad, or `open -a Search`, reaches the running process (same bundle, no `-n`), not a new one. `applicationShouldHandleReopen` switches back to `.regular` and summons the window with the parked session. Bench tabs stay in the room. They already coexist with the person's tabs in one process today (flask tabs at the end of the row), so nothing new there.
+
+**Whose identity: the one question for Aleks.**
+- **Agents in his own browser identity**: his world, his logins, no second sign-in. This needs the ⌘Q-into-background path, because a second process can never share his world.
+- **A separate agent identity**: its own world, a daemon that never touches his app, one visible `search login` per site.
+
+My recommendation is **a separate agent world by default**. It needs no change to what ⌘Q means for his everyday browser. An agent can't close his tabs, fill his forms or get him logged out. Resetting it is one folder, and the daemon and his app never contend. The ⌘Q-into-background mode then becomes the opt-in for "use my own sessions". It is filed as a decision for him.
+
+**Build order after slice 1:** the world lock → idle timeout → saving and restoring session cookies for agent worlds → the ⌘Q setting with the status item.
