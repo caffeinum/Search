@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Drive the Search you already have open, from the shell.
 
+    ./bench start [--headless]         start Search for this world (--test or --world NAME) → its status;
+                                       --headless: no window, no Dock icon. Already running: says so, uses it
+    ./bench status                     running or not: pid, headless, windows on screen, tabs
+    ./bench stop                       quit it as ⌘Q does, so sign-ins are written down
     ./bench tabs                       every tab, yours and the bench's
     ./bench open URL                   a bench tab at the end of the row → its id
     ./bench go ID URL                  send a bench tab somewhere else
@@ -76,7 +80,9 @@ with --world NAME, to a SEARCH_PROBE=NAME run, the world "Search (NAME)".
 import json
 import os
 import socket
+import subprocess
 import sys
+import time
 
 def folder(world):
     name = f"Search ({world})" if world else "Search"
@@ -99,6 +105,56 @@ def ask(path, request):
     line = b"".join(chunks).split(b"\n", 1)[0]
     return json.loads(line or b"{}")
 
+def listening(path):
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+        try:
+            s.connect(path)
+            return True
+        except (FileNotFoundError, ConnectionRefusedError):
+            return False
+
+def summary(world, status):
+    how = "headless" if status["headless"] else "with a window"
+    return (f"world {world or 'yours'}: running {how}, pid {status['pid']}, "
+            f"{status['windows']} window(s) on screen, {status['tabs']} tab(s)")
+
+def start(world, sock, headless):
+    if listening(sock):
+        status = ask(sock, {"do": "status"})
+        print(f"Search is already running for world {world or 'yours'} (pid {status['pid']}) — using it", file=sys.stderr)
+        print(summary(world, status))
+        return 0
+    if world is None:
+        sys.exit("start only runs a --test or --world NAME copy; open your own Search yourself")
+    app = os.path.join(os.path.dirname(os.path.realpath(__file__)), "build", "Search.app")
+    if not os.path.isdir(app):
+        sys.exit(f"no {app} — run ./build.sh first")
+    suite = "com.officecommun.search.test" + ("" if world == "test" else "." + world)
+    subprocess.run(["defaults", "write", suite, "bench", "-bool", "true"], check=True)
+    # Hidden at launch so the window never shows; a headless Search un-hides itself.
+    subprocess.run(["open", "-n", "-g"] + (["-j"] if headless else []) + ["--env", f"SEARCH_PROBE={world}", app]
+                   + (["--args", "--headless"] if headless else []), check=True)
+    for _ in range(60):
+        if listening(sock):
+            print(summary(world, ask(sock, {"do": "status"})))
+            return 0
+        time.sleep(0.5)
+    sys.exit(f"Search for world {world} didn't start listening within 30 s")
+
+def stop(world, sock):
+    if not listening(sock):
+        print(f"world {world or 'yours'}: not running", file=sys.stderr)
+        return 0
+    pid = ask(sock, {"do": "quit"})["pid"]
+    for _ in range(60):
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            print(f"world {world or 'yours'}: stopped (pid {pid})")
+            return 0
+        time.sleep(0.25)
+    sys.exit(f"pid {pid} is still running 15 s after being asked to quit")
+
 def main(argv):
     world = "test" if "--test" in argv else None
     if "--world" in argv:
@@ -113,6 +169,18 @@ def main(argv):
         print(__doc__.strip())
         return 0
     verb, args = argv[0], argv[1:]
+    sock = os.path.join(folder(world), "bench.sock")
+    if verb == "start":
+        if args not in ([], ["--headless"]): sys.exit("usage: bench start [--headless]")
+        return start(world, sock, args == ["--headless"])
+    if verb == "stop":
+        return stop(world, sock)
+    if verb == "status":
+        if not listening(sock):
+            print(f"world {world or 'yours'}: not running")
+            return 1
+        print(summary(world, ask(sock, {"do": "status"})))
+        return 0
     request = {"do": verb}
     if verb == "open":
         if len(args) != 1: sys.exit("usage: bench open URL")

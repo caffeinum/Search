@@ -69,8 +69,10 @@ final class Links: NSObject, NSApplicationDelegate {
     /// pages of a hidden app as background tabs, and a site that waits to be
     /// seen paints nothing at all. So the app hides itself before its window
     /// is made, puts the window away once it is, and only then comes back
-    /// out, with nothing of its own left on any screen.
-    static let headless = ProcessInfo.processInfo.environment["SEARCH_HEADLESS"] != nil
+    /// out, with nothing of its own left on any screen. `--headless` on the
+    /// command line, or SEARCH_HEADLESS in the environment.
+    static let headless = CommandLine.arguments.contains("--headless")
+        || ProcessInfo.processInfo.environment["SEARCH_HEADLESS"] != nil
 
     @MainActor private func goHeadless() {
         guard Store.settings.bool(forKey: "bench") else {

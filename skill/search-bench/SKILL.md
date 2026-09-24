@@ -31,6 +31,16 @@ Use a test world for any work that changes chrome, installs or removes extension
 
 On the installed browser, only when they asked you to drive that window: `tabs`, `probe`, and page commands against bench tabs. Leave `ui`, `select`, `key`, `resize`, and every `ext-*` command for a test world unless they named that change on their own browser. `look` and `sidebar` are saved preferences.
 
+## Start, status, stop
+
+```bash
+./bench --world agent start --headless   # no window, no Dock icon; already running: says so, uses it
+./bench --world agent status             # pid, headless or not, windows on screen, tabs; exit 1 when not running
+./bench --world agent stop               # quits as ⌘Q does, so sign-ins are written down; never kill it
+```
+
+`start` runs `build/Search.app` for a `--test` or `--world NAME` run only, and switches that world's bench on. It won't start the installed browser. The app also takes `--headless` itself (`open build/Search.app --args --headless`), or `SEARCH_HEADLESS=1`.
+
 ## Get a test world listening
 
 One process per world. Quit a process only after its executable path is this repo's `build/Search.app` or a `.build/` binary, or its environment contains `SEARCH_PROBE`. Leave `/Applications/Search.app` alone. `killall`, quitting by the name Search, and `osascript` quit hit the installed app too: same bundle id, same process name.

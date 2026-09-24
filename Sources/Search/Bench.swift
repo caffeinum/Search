@@ -280,6 +280,18 @@ final class Bench {
         case "tabs":
             answer(["tabs": browser.tabs.map(describe)])
 
+        case "status":
+            let screens = NSScreen.screens.map(\.frame)
+            let showing = NSApp.windows.filter { window in window.isVisible && screens.contains { $0.intersects(window.frame) } }
+            answer(["pid": Int(getpid()), "world": Store.world ?? "", "headless": Links.headless,
+                    "hidden": NSApp.isHidden, "windows": showing.count, "tabs": browser.tabs.count])
+
+        case "quit":
+            // As ⌘Q does, so the session and the cookies are written down
+            // on the way out rather than lost to a kill.
+            answer(["pid": Int(getpid())])
+            DispatchQueue.main.async { NSApp.terminate(nil) }
+
         case "open":
             guard let url = (request["url"] as? String).flatMap(Address.url(from:)) else {
                 answer(["error": "open needs a url"])
