@@ -129,7 +129,7 @@ Yes. `search mcp` runs over stdio, and its tools are generated from the same com
 
 Keep `./bench` as the client. Change the app only:
 
-1. The occlusion call in `Bench.house(_:)`. Verify with `./bench eval $id 'document.visibilityState'` → `"visible"`.
+1. The occlusion call in `Bench.house(_:)`. Verify with `./bench eval $id 'document.visibilityState'` → `"visible"`. Keep that check as a standing regression test, run on every build and after every macOS update: the call is private, so a macOS update can remove or change it without a word, and pages would quietly go back to being throttled. `house(_:)` should also fail loudly (log it, and put it in `tabs`/`status`) when the web view doesn't respond to the selector, rather than carrying on.
 2. `SEARCH_HEADLESS=1` on a named world: `.accessory`, no browser window, bench on, room only.
 3. `snapshot`, plus `click`/`type` accepting a ref.
 4. `login URL`: show a window in this world. Closing it goes back to headless.
