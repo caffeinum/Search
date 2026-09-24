@@ -88,6 +88,49 @@ final class Links: NSObject, NSApplicationDelegate {
             self, andSelector: #selector(handle(getURL:reply:)),
             forEventClass: AEEventClass(kInternetEventClass), andEventID: AEEventID(kAEGetURL)
         )
+        if Links.headless {
+            NSApp.setActivationPolicy(.accessory)
+            NSApp.hide(nil)
+        }
+    }
+
+    /// Run for scripts alone (`SEARCH_HEADLESS=1`): no Dock icon, no menu
+    /// bar, no window on any screen — only the bench and its tabs, in their
+    /// room off every screen. Never left hidden, though: WebKit treats the
+    /// pages of a hidden app as background tabs, and a site that waits to be
+    /// seen paints nothing at all. So the app hides itself before its window
+    /// is made, puts the window away once it is, and only then comes back
+    /// out, with nothing of its own left on any screen.
+    static let headless = ProcessInfo.processInfo.environment["SEARCH_HEADLESS"] != nil
+
+    @MainActor private func goHeadless() {
+        guard Store.settings.bool(forKey: "bench") else {
+            Links.quit("SEARCH_HEADLESS with the bench switched off leaves nothing to drive it")
+        }
+        Links.summon()
+        park(tries: 250)
+    }
+
+    @MainActor private func park(tries: Int) {
+        guard Links.window != nil else {
+            guard tries > 0 else { Links.quit("SEARCH_HEADLESS: the browser's window never came, so there is no browser to drive") }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) { self.park(tries: tries - 1) }
+            return
+        }
+        // Every window a restored session brought, not only this one — and
+        // not by isVisible, which is false for all of them while the app is
+        // hidden, though un-hiding would bring each one back.
+        for window in NSApp.windows { window.orderOut(nil) }
+        // Shown on purpose, with nothing left to show: the bench's watch for
+        // windows on a screen (Bench.watchScreens) knows it from `pages on`.
+        Bench.pagesShown = true
+        NSApp.unhideWithoutActivation()
+    }
+
+    private static func quit(_ why: String) -> Never {
+        NSLog("Search: %@; quitting", why)
+        FileHandle.standardError.write(Data("Search: \(why); quitting\n".utf8))
+        exit(1)
     }
 
     /// A launch macOS doesn't call a plain one — started hidden, as `open -j`
@@ -101,6 +144,7 @@ final class Links: NSObject, NSApplicationDelegate {
         // in the middle of it — a Safari export's passwords in the clear
         // among it — goes (Security).
         DispatchQueue.global(qos: .utility).async { ImportFile.sweepScratch() }
+        if Links.headless { DispatchQueue.main.async { self.goHeadless() }; return }
         let plain = notification.userInfo?[NSApplication.launchIsDefaultUserInfoKey] as? Bool ?? true
         guard !plain else { return }
         DispatchQueue.main.async {
