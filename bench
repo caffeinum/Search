@@ -274,6 +274,8 @@ def main(argv):
     answer = ask(os.path.join(folder(world), "bench.sock"), request)
     if "error" in answer:
         sys.exit("error: " + str(answer["error"]))
+    if "unseen" in answer:
+        print("warning: " + answer["unseen"], file=sys.stderr)
     if verb == "text":
         print(answer.get("text", ""))
         if answer.get("truncated"):
