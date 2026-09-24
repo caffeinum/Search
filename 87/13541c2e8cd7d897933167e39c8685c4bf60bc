@@ -1,0 +1,19 @@
+docs/headless.md
+  s_f0e1d71581bb0c::t_e8f361e7623d60 160-161
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "8713541c2e8cd7d897933167e39c8685c4bf60bc",
+  "prompts": {},
+  "sessions": {
+    "s_f0e1d71581bb0c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "678ea80a-cffc-4c47-9c1f-1539ad621406",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Aleksey Bykhun <theisease@gmail.com>"
+    }
+  }
+}
