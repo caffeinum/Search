@@ -104,7 +104,7 @@ The person sees one window, once per world:
 3. Everything after that is headless in the same process and store. Nothing crosses a process boundary, so there is no store-sharing question to get wrong.
 4. When a session expires, the agent sees a sign-in page in the snapshot. The CLI exits with a distinct code (`needs login`, found by a login-form heuristic). The agent asks the person to run `search login` again. Agents never get passwords: no autofill in agent worlds.
 
-**Google, honestly**: `disallowed_useragent` targets WKWebView's default user agent, the one without `Version/… Safari/…`. Search sends `Version/26.5 Safari/605.1.15` (`Tab.swift:17`), so Google sees Safari. People already sign in to Google in Search today: CHANGELOG #2 fixed a reload loop *during* Google sign-in. The login window is a full browser window, which is what Google's policy asks for. What I did **not** verify: a fresh Google sign-in end to end (no account on this box). That is the first manual check. The residual risk is Google adding embedded-browser detection beyond the user agent. That is a policy risk, not a technical wall, and every WebKit browser that isn't Safari shares it.
+**Google, honestly**: `disallowed_useragent` targets WKWebView's default user agent, the one without `Version/… Safari/…`. Search sends `Version/26.5 Safari/605.1.15` (`Tab.swift:17`), so Google sees Safari. People already sign in to Google in Search today: CHANGELOG #2 fixed a reload loop *during* Google sign-in. The login window is a full browser window, which is what Google's policy asks for. Verified since, by `personal` on the installed app (launched hidden): e2b's "Continue with Google" went through Google's account chooser and landed signed in on the e2b console. Google did not block it. The residual risk is Google adding embedded-browser detection beyond the user agent. That is a policy risk, not a technical wall, and every WebKit browser that isn't Safari shares it.
 
 **Importing Chrome cookies: no, not in v1.**
 - Reading them means the "Chrome Safe Storage" keychain prompt and decrypting Chrome's cookie DB. That is fragile, and it is the kind of thing users rightly distrust.
@@ -157,6 +157,8 @@ Here, in a harness (off-screen room, occlusion off), one process going through t
 
 So the rule is: **never hidden, not whether windowless**. A hidden launch has to un-hide itself, after it has switched to `.accessory`, so nothing can show.
 
+Hidden is worse than throttled on real sites. `personal`, with Search launched hidden, signed in to e2b through Google. The React console then painted nothing at all: `innerText` was empty, the screenshot was blank and the page reported `hidden`. The same page rendered fully with Search visible. Background mode must never call `hide`.
+
 Session cookies, in a harness using a `WKWebsiteDataStore(forIdentifier:)`: a page set a session cookie `sid` and a persistent one `keep`.
 - A new process: only `keep`. This is e2b's logout, reproduced.
 - A new process that first wrote back the session cookies, saved from `httpCookieStore.getAllCookies` where `isSessionOnly`: both, and the page reads `sid` again.
@@ -172,7 +174,9 @@ Single instance: nothing stops two processes on one world. `Bench.start` `unlink
 - *Kill-when-done* costs a cold start (~1 s, plus page loads and whatever the sites cache in memory) and every session-only login, on every job. *Idle timeout* (default 30 min after the last bench command) costs one idle WebKit process while agents are working. That is cheap. Take the timeout.
 - **Save session cookies on the way down, restore them on launch**, in agent worlds. It's what "continue where you left off" does in Chrome. The file goes in the keychain (they are credentials) and holds only the session-only cookies of that world. This makes an e2b-style login survive the timeout and reboots. Off for the person's own world unless they turn it on: it keeps sites' "end of session" from ever happening, and that should be their call.
 - **Launch on demand from the CLI, no login item and no LaunchAgent.** Nothing needs Search at boot. The first `search …` call starts it in about 1 s, and the idle timeout keeps it warm for the rest of the task. `open -n -g --env SEARCH_HEADLESS=1 --env SEARCH_PROBE=<world>` for an agent world. Never `-j`, or it starts hidden.
-- **A world lock.** The first process on a world takes a `flock` on a file in its folder. A second one on the same world exits with "Search is already running on world X (pid N)" instead of stealing the socket. The CLI treats that as "talk to that one".
+- **A world lock. Decided by Aleks: "daemon is noop if Search is running".** The first process on a world takes a `flock` on a file in its folder.
+  - `search daemon` (or any CLI call that would start one) on a world that is already running is a **no-op that succeeds**. It exits 0, prints `Search is already running for world X (pid N) — using it` on stderr, and the command goes to that process. Not an error: what the caller wanted, a Search listening on that world, is true, and an error would make every idempotent script branch on it.
+  - A second **Search.app process** on a held world (say `open -n`) is an **error**. It exits non-zero with the same message, before it binds the socket or touches the session files. It never steals the socket.
 
 **⌘Q.** A setting, *Keep agents running after quit*, off by default.
 - Off: ⌘Q quits, as today.
