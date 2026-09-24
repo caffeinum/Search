@@ -1,0 +1,26 @@
+Sources/Search/Links.swift
+  s_f0e1d71581bb0c::t_64b318077fafdc 75
+  s_f0e1d71581bb0c::t_862440ad749e25 66-67,73-74,88,113
+  s_f0e1d71581bb0c::t_32c17b65c121e5 60-63,68-72,76-87,90,100-103
+  s_f0e1d71581bb0c::t_9898d84cbb7907 64,89,92-98
+  s_f0e1d71581bb0c::t_b1b6200c18c389 91,99
+  s_f0e1d71581bb0c::t_8ebc745aeca1d2 65
+docs/headless.md
+  s_f0e1d71581bb0c::t_daefe4cc091497 176
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "5fd0ae2ff67932b4ac1a0b1740e68dc3c24106a7",
+  "prompts": {},
+  "sessions": {
+    "s_f0e1d71581bb0c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "678ea80a-cffc-4c47-9c1f-1539ad621406",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Aleksey Bykhun <theisease@gmail.com>"
+    }
+  }
+}
