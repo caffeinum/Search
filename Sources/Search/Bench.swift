@@ -528,9 +528,11 @@ final class Bench {
             }
             // "repeat": the press a key held down sends again and again.
             let repeats = (request["mods"] as? [String] ?? []).contains("repeat")
-            for type in [NSEvent.EventType.keyDown, .keyUp] {
+            // "release": the modifiers let go of, as a flagsChanged — what ends a ⌃Tab walk.
+            let release = (request["mods"] as? [String] ?? []).contains("release")
+            for type in release ? [NSEvent.EventType.flagsChanged] : [.keyDown, .keyUp] {
                 guard let event = NSEvent.keyEvent(
-                    with: type, location: .zero, modifierFlags: flags,
+                    with: type, location: .zero, modifierFlags: release ? [] : flags,
                     timestamp: ProcessInfo.processInfo.systemUptime,
                     windowNumber: Links.window?.windowNumber ?? 0, context: nil,
                     characters: chars, charactersIgnoringModifiers: chars,

@@ -13,7 +13,7 @@
     ./bench select ID                  bring a tab to the front — --test runs only
     ./bench resize W H [STEPS]         take the window to W×H in steps, like a drag — --test runs only
     ./bench key ID TEXT                press keys on a tab as real key events — --test runs only
-    ./bench press CODE CHARS [MODS…]   press a key on the whole app (cmd shift ctrl opt, repeat) — --test runs only
+    ./bench press CODE CHARS [MODS…]   press a key on the whole app (cmd shift ctrl opt, repeat; release: let go of them) — --test runs only
     ./bench tap ID SELECTOR [MODS…]    a real mouse click on an element (or text=Words), shift/cmd/opt held — --test runs only
     ./bench text ID                    the page's text
     ./bench eval ID JS [search]        run JavaScript, print what it returns; search: in Search's own world

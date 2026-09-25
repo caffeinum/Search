@@ -1011,7 +1011,7 @@ final class Tab: ObservableObject, Identifiable {
         adoptIcon()
     }
 
-    func touch() { touched = Date() }
+    func touch(_ at: Date = Date()) { touched = at }
 
     /// True when the web view holds nothing — never loaded, or emptied —
     /// while the tab still names a page. The white page, in other words.

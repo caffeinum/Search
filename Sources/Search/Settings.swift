@@ -287,6 +287,10 @@ struct SettingsPanel: View {
                 Switch(on: $prefs.sleepsTabs)
             }
             Rule()
+            Line("⌃Tab goes to the last tab you used", "As in Arc: hold ⌃ and press Tab again to go further back, let go to stay. Off, ⌃Tab goes along the row") {
+                Switch(on: $prefs.recentTabs)
+            }
+            Rule()
             Line("Spaces", "Separate sets of tabs, signed in where the others are or starting afresh, switched with ⌃1–⌃9, two fingers sideways over the column, or the space's icon. Mission Control's own ⌃1–⌃9, if you turned them on, take those keys first.") {
                 Switch(on: $prefs.usesSpaces)
             }

@@ -755,8 +755,9 @@ struct ContentView: View {
         guard keys == nil else { return }
         keys = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { event in
             guard event.type == .keyDown else {
-                // ⌘ let go of ends a ⌘K walk, wherever it stopped.
+                // ⌘ let go of ends a ⌘K walk, wherever it stopped; ⌃, a ⌃Tab one.
                 if !event.modifierFlags.contains(.command) { browser.landSummon() }
+                if !event.modifierFlags.contains(.control) { browser.landRecent() }
                 return event
             }
             return take(event) ? nil : event
@@ -874,7 +875,11 @@ struct ContentView: View {
         // there is to move through, and Return takes whatever the walk landed on.
         if event.keyCode == 48, !flags.contains(.command), !flags.contains(.option) {
             if flags.contains(.control) {
-                browser.step(flags.contains(.shift) ? -1 : 1)
+                if browser.prefs.recentTabs {
+                    browser.stepRecent(flags.contains(.shift) ? -1 : 1)
+                } else {
+                    browser.step(flags.contains(.shift) ? -1 : 1)
+                }
                 return true
             }
             if browser.editingTab != nil { return true }

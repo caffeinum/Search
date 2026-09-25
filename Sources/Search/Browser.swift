@@ -1242,6 +1242,37 @@ final class Browser: NSObject, ObservableObject {
         select(tabs[next])
     }
 
+    /// A ⌃Tab walk by recency, while ⌃ is held: the tabs in the order they
+    /// were last looked at when it began, and when each was, so the tabs it
+    /// passes through on the way don't jump the queue.
+    private var recency: (order: [Tab.ID], at: Int, seen: [Tab.ID: Date])?
+
+    /// ⌃Tab with Settings › Tabs › "⌃Tab goes to the last tab you used":
+    /// the tab looked at before this one, and on down the list while ⌃ is
+    /// held. ⌃⇧Tab walks back up.
+    func stepRecent(_ direction: Int) {
+        guard tabs.count > 1, let here = active else { return }
+        if recency == nil {
+            let others = tabs.filter { $0.id != here.id }.sorted { $0.touched > $1.touched }
+            recency = ([here.id] + others.map(\.id), 0, Dictionary(uniqueKeysWithValues: tabs.map { ($0.id, $0.touched) }))
+        }
+        guard var walk = recency else { return }
+        walk.at = (walk.at + direction + walk.order.count) % walk.order.count
+        recency = walk
+        guard let tab = tabs.first(where: { $0.id == walk.order[walk.at] }) else { return }
+        select(tab)
+    }
+
+    /// ⌃ let go of: only the tab the walk landed on, and the one it started
+    /// from, count as looked at. Two quick ⌃Tabs flip between two tabs.
+    func landRecent() {
+        guard let walk = recency else { return }
+        recency = nil
+        for tab in tabs where tab.id != activeID && tab.id != walk.order.first {
+            if let seen = walk.seen[tab.id] { tab.touch(seen) }
+        }
+    }
+
     func select(index: Int) {
         guard tabs.indices.contains(index) else { return }
         select(tabs[index])
