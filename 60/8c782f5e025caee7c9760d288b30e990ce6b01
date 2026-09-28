@@ -1,0 +1,23 @@
+Sources/Search/Bench.swift
+  s_f0e1d71581bb0c::t_c3a039e0f5a871 1638,2849,2870-2873,2993,3000-3020
+  s_f0e1d71581bb0c::t_11f2cf382b8ae7 1638,2849,2870-2873,2993,3000-3020
+bench
+  s_f0e1d71581bb0c::t_549fff943f4f4d 527-528
+  s_f0e1d71581bb0c::t_c6c8a400ebc3f3 527-528
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "608c782f5e025caee7c9760d288b30e990ce6b01",
+  "prompts": {},
+  "sessions": {
+    "s_f0e1d71581bb0c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "678ea80a-cffc-4c47-9c1f-1539ad621406",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Aleksey Bykhun <theisease@gmail.com>"
+    }
+  }
+}
