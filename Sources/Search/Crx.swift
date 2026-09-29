@@ -170,6 +170,17 @@ enum Crx {
     }
 
     /// The id's letters: each half-byte is a letter from a (0) to p (15).
+    /// The id Chrome gives an unpacked extension whose manifest.json carries
+    /// a `key`: the store's id for it, made from that key as above. Nil when
+    /// there is no key, or it isn't one.
+    static func id(ofFolder folder: URL) -> String? {
+        guard let data = try? Data(contentsOf: folder.appendingPathComponent("manifest.json")),
+              let manifest = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let key = (manifest["key"] as? String).flatMap({ Data(base64Encoded: $0) })
+        else { return nil }
+        return letters(Array(SHA256.hash(data: key).prefix(16)))
+    }
+
     static func letters(_ bytes: [UInt8]) -> String {
         String(bytes.flatMap { [$0 >> 4, $0 & 0x0f] }.map { Character(UnicodeScalar(UInt8(97) + $0)) })
     }

@@ -20,7 +20,8 @@ import Combine
 
 /// One installed extension, as the list in Settings shows it.
 struct Installed: Codable, Identifiable, Equatable {
-    /// The Chrome Web Store id, or "local-…" for one loaded from a folder.
+    /// The Chrome Web Store id, or "local-…" for one loaded from a folder
+    /// (the id its manifest's `key` makes, when it has one).
     let id: String
     var name: String
     var version: String
@@ -542,7 +543,15 @@ final class Extensions: NSObject, ObservableObject {
             browser?.announce("That folder has no manifest.json")
             return
         }
-        let id = "local-" + String(UUID().uuidString.prefix(8)).lowercased()
+        // A manifest with a `key` keeps the id that key makes, as in Chrome:
+        // a native app that lets only that id in — Apple's helper for iCloud
+        // Passwords — lets this copy in too.
+        let keyed = Crx.id(ofFolder: source)
+        if let keyed, let there = installed.first(where: { $0.id == keyed }) {
+            browser?.announce("\(there.name) already has this extension's id — remove it first")
+            return
+        }
+        let id = keyed ?? "local-" + String(UUID().uuidString.prefix(8)).lowercased()
         let staged = Extensions.stagingFolder(for: id)
         Task {
             defer { try? FileManager.default.removeItem(at: staged) }
