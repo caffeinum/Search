@@ -533,7 +533,10 @@ enum ExtensionShims {
               setTimeout(again, 100 * Math.min(tries, 5));
             };
             port.onMessage.addListener((m) => {
-              if (!ready) ready = true;
+              // Only the browser's answer to the opening stops it being said
+              // again: its "ready" as the port opened can come first while
+              // the opening itself was lost, and then nothing was ever sent.
+              if (m && m.heard) ready = true;
               if (m && m.ready === true) return;
               this.#take(m);
             });
