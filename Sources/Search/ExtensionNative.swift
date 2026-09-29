@@ -93,6 +93,8 @@ enum ExtensionNative {
             DispatchQueue.main.async { if !port.isDisconnected { port.disconnect() } }
         }
         var beating: Timer?
+        // When the worker last answered "alive" (below).
+        var heard = Date()
         port.messageHandler = { message, _ in
             guard let message else { return }
             // A worker's shim asking whether the port has arrived (see the
@@ -100,6 +102,7 @@ enum ExtensionNative {
             if let asked = message as? [String: Any], let word = asked["__searchNative"] {
                 // The shim's answer to "alive" (below) is only the worker
                 // keeping itself: nothing to say back.
+                if (word as? String) == "beat" { heard = Date() }
                 guard (word as? String) == "here?" else { return }
                 port.sendMessage(["__searchNative": "here"], completionHandler: nil)
                 // Asked, it is a worker's port, and WebKit unloads a worker
@@ -110,8 +113,23 @@ enum ExtensionNative {
                 // shim, has the worker answer on it, which is what WebKit
                 // counts.
                 if beating == nil {
+                    heard = Date()
                     beating = Timer.scheduledTimer(withTimeInterval: 25, repeats: true) { timer in
                         guard !port.isDisconnected else { timer.invalidate(); return }
+                        // Three words unanswered: the worker is gone though
+                        // WebKit never said so — its process ended, and WebKit
+                        // closes a dead worker without disconnecting its ports.
+                        // Its host and its sockets go with it, so whoever is on
+                        // their far side hears the end rather than talking to
+                        // nobody, and an iCloud Passwords helper isn't left
+                        // holding a pairing no worker has any more.
+                        if Date().timeIntervalSince(heard) > 80 {
+                            timer.invalidate()
+                            port.disconnect()
+                            pipe.stop()
+                            ExtensionSocket.end(for: extensionID)
+                            return
+                        }
                         port.sendMessage(["__searchNative": "alive"], completionHandler: nil)
                     }
                 }

@@ -26,6 +26,14 @@ enum ExtensionSocket {
     /// Held from the port's opening until either end lets go.
     private static var open: [ObjectIdentifier: Connection] = [:]
 
+    /// Every socket of an extension whose worker has gone without WebKit
+    /// saying so (see ExtensionNative.connect): closed, as the worker would
+    /// have closed them.
+    static func end(for extensionID: String) {
+        let origin = "\(Extensions.scheme)://\(extensionID)"
+        for connection in open.values where connection.origin == origin { connection.close() }
+    }
+
     static func connect(_ port: WKWebExtension.MessagePort, from extensionID: String) {
         let connection = Connection(port: port, origin: "\(Extensions.scheme)://\(extensionID)")
         let key = ObjectIdentifier(connection)
@@ -36,7 +44,7 @@ enum ExtensionSocket {
     @MainActor
     final class Connection: NSObject, URLSessionWebSocketDelegate {
         private let port: WKWebExtension.MessagePort
-        private let origin: String
+        let origin: String
         private var task: URLSessionWebSocketTask?
         private var ended = false
         var onEnd: (() -> Void)?
@@ -122,6 +130,8 @@ enum ExtensionSocket {
             guard !port.isDisconnected else { return }
             port.sendMessage(message, completionHandler: nil)
         }
+
+        func close() { end(tellingPort: true) }
 
         private func fail() {
             post(["failed": true])
